@@ -1,0 +1,27 @@
+services:
+  hoops-vs-beans-api:
+    build:
+      context: .
+      dockerfile: HoopsVsBeans.Dockerfile
+    container_name: hoops-vs-beans_api
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hoopsvsbeansapi.rule=Host(`seanofthe.dev`) && PathPrefix(`/hoops-vs-beans-api`)"
+      - "traefik.http.routers.hoopsvsbeansapi.entrypoints=websecure"
+      - "traefik.http.routers.hoopsvsbeansapi.tls=true"
+      - "traefik.http.routers.hoopsvsbeansapi.tls.certresolver=myresolver"
+      - "traefik.http.services.hoopsvsbeansapi.loadbalancer.server.port=8080"
+    environment:
+      - ConnectionStrings__DefaultConnection=Data Source=/data/HoopsVsBeans.db
+    volumes:
+      - hoops-vs-beans-data:/data
+    networks:
+      - traefik-network
+
+networks:
+  traefik-network:
+    external: true
+
+volumes:
+  hoops-vs-beans-data:
+    driver: local

@@ -1,0 +1,6 @@
+@HoopsVsBeans_HostAddress = http://localhost:5298
+
+GET {{HoopsVsBeans_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
