@@ -18,7 +18,8 @@ public class ApiKeyMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        if (context.Request.Path.StartsWithSegments("/swagger"))
+        if (context.Request.Path.StartsWithSegments("/swagger") || 
+            context.Request.Path.StartsWithSegments("/hoops-vs-beans-api/swagger"))
         {
             await _next(context);
             return;

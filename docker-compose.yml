@@ -2,7 +2,7 @@ services:
   hoops-vs-beans-api:
     build:
       context: .
-      dockerfile: HoopsVsBeans.Dockerfile
+      dockerfile: Dockerfile
     container_name: hoops-vs-beans_api
     labels:
       - "traefik.enable=true"
@@ -13,6 +13,8 @@ services:
       - "traefik.http.services.hoopsvsbeansapi.loadbalancer.server.port=8080"
     environment:
       - ConnectionStrings__DefaultConnection=Data Source=/data/HoopsVsBeans.db
+      - WHITELISTED_IPS=${WHITELISTED_IPS}
+      - BEANS_VS_HOOPS_API_KEY=${BEANS_VS_HOOPS_API_KEY}
     volumes:
       - hoops-vs-beans-data:/data
     networks:
@@ -24,4 +26,5 @@ networks:
 
 volumes:
   hoops-vs-beans-data:
+    name: hoops-vs-beans-data
     driver: local

@@ -2,7 +2,7 @@ services:
   hoops-vs-beans-api:
     build:
       context: .
-      dockerfile: HoopsVsBeans.Dockerfile
+      dockerfile: Dockerfile
     container_name: hoops-vs-beans_api
     labels: []
     ports:
@@ -10,3 +10,5 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Data Source=/tmp/HoopsVsBeans.db
+      - WHITELISTED_IPS=${WHITELISTED_IPS}
+      - BEANS_VS_HOOPS_API_KEY=${BEANS_VS_HOOPS_API_KEY}
