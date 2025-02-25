@@ -2,12 +2,22 @@ using System.Net;
 
 namespace HoopsVsBeans.Middleware;
 
-public class IpRestrictionMiddleware(RequestDelegate next, ILogger<IpRestrictionMiddleware> logger)
+public class IpRestrictionMiddleware
 {
-    private static readonly HashSet<string> AllowedDomains =
-    [
+    private static readonly HashSet<string> AllowedDomains = new()
+    {
         "hoopsvsbeans.com"
-    ];
+    };
+
+    private readonly HashSet<string> AllowedIps;
+    private readonly RequestDelegate _next;
+    public IpRestrictionMiddleware(RequestDelegate next)
+    {
+        _next = next;
+
+        var whitelistedIps = Environment.GetEnvironmentVariable("WHITELISTED_IPS")?.Split(',') ?? Array.Empty<string>();
+        AllowedIps = new HashSet<string>(whitelistedIps.Select(ip => ip.Trim()));
+    }
 
     public async Task InvokeAsync(HttpContext context)
     {
@@ -15,8 +25,6 @@ public class IpRestrictionMiddleware(RequestDelegate next, ILogger<IpRestriction
         var remoteIp = !string.IsNullOrEmpty(forwardedFor)
             ? IPAddress.Parse(forwardedFor.Split(',')[0].Trim())
             : context.Connection.RemoteIpAddress;
-
-        logger.LogInformation($"Real IP: {remoteIp} requested: {context.Request.Method} {context.Request.Path}");
 
         if (remoteIp is null)
         {
@@ -27,9 +35,9 @@ public class IpRestrictionMiddleware(RequestDelegate next, ILogger<IpRestriction
 
         var ipStr = remoteIp.ToString();
 
-        if (AllowedDomains.Contains(ipStr))
+        if (AllowedIps.Contains(ipStr) || AllowedDomains.Contains(ipStr))
         {
-            await next(context);
+            await _next(context);
             return;
         }
 
@@ -38,7 +46,7 @@ public class IpRestrictionMiddleware(RequestDelegate next, ILogger<IpRestriction
             var resolvedIps = await Dns.GetHostAddressesAsync(host);
             if (resolvedIps.Any(ip => ip.ToString() == ipStr))
             {
-                await next(context);
+                await _next(context);
                 return;
             }
         }
