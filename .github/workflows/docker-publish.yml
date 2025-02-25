@@ -59,6 +59,7 @@ jobs:
     needs: publish
     name: deploy image
     runs-on: ubuntu-latest
+
     steps:
       - name: install ssh keys
         run: |
@@ -73,9 +74,17 @@ jobs:
           WHITELISTED_IPS=${{ secrets.WHITELISTED_IPS }}
           EOF"
 
-      - name: connect and pull
+      - name: connect, pull, and deploy
         run: |
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.WORK_DIR }} && docker compose pull && docker stop hoops-vs-beans_api || true && docker rm hoops-vs-beans_api || true && docker compose up -d && exit"
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.WORK_DIR }} && \
+            docker compose pull && \
+            docker stop hoops-vs-beans_api || true && \
+            docker rm hoops-vs-beans_api || true && \
+            docker compose up -d && exit"
 
+      - name: verify container is running
+        run: |
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "if [ -z \"\$(docker ps -q -f name=hoops-vs-beans_api)\" ]; then echo 'Error: Container is not running' && exit 1; else echo 'Container is running'; fi"
+          
       - name: cleanup
         run: rm -rf ~/.ssh
