@@ -6,7 +6,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.actor }}/hoops-vs-beans-api:latest
+  IMAGE_NAME: ${{ github.actor.toLowerCase() }}/hoops-vs-beans-api:latest
 
 permissions:
   packages: write
