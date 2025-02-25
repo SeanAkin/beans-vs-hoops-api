@@ -70,7 +70,7 @@ jobs:
       - name: create .env file on remote host
         run: |
           ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cat > ${{ secrets.WORK_DIR }}/.env <<EOF
-          API_KEY=${{ secrets.API_KEY }}
+          BEANS_VS_HOOPS_API_KEY=${{ secrets.API_KEY }}
           WHITELISTED_IPS=${{ secrets.WHITELISTED_IPS }}
           EOF"
 
