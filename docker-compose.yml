@@ -15,6 +15,7 @@ services:
       - ConnectionStrings__DefaultConnection=Data Source=/data/HoopsVsBeans.db
       - WHITELISTED_IPS=${WHITELISTED_IPS}
       - BEANS_VS_HOOPS_API_KEY=${BEANS_VS_HOOPS_API_KEY}
+      - DISCORD_WEBHOOK_URL=${DISCORD_WEBHOOK_URL}
     volumes:
       - hoops-vs-beans-data:/data
     networks:

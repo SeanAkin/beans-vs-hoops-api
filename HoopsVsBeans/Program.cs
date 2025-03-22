@@ -2,6 +2,7 @@ using HoopsVsBeans.Data;
 using HoopsVsBeans.Data.Models;
 using HoopsVsBeans.Middleware;
 using HoopsVsBeans.ServiceCollectionExtensions;
+using HoopsVsBeans.Services;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 
@@ -14,6 +15,7 @@ builder.Services.AddSwaggerApiKeySupport();
 builder.Services.AddSecrets(builder.Configuration);
 builder.Services.AddDbContext<HoopsVsBeansContext>(opt 
     => opt.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddScoped<DiscordMessageService>();
 
 var app = builder.Build();
 
@@ -39,20 +41,22 @@ app.UseSwaggerUI();
 
 app.UseHttpsRedirection();
 
-app.MapPut("/Vote/{option}", async (HoopsVsBeansContext dbContext, string option) =>
+app.MapPut("/Vote/{option}", async (HoopsVsBeansContext dbContext, DiscordMessageService discordMessageService, string option) =>
 {
     option = option.ToLower();
     if (option != "beans" && option != "hoops")
     {
         return Results.BadRequest("Invalid voting option. Choose 'Hoops' or 'Beans'.");
     }
-
+    
     var column = option == "hoops" ? "Hoops" : "Beans";
     var sql = $"UPDATE VoteOptions SET {column} = {column} + 1 WHERE Id = 1;";
 
     await dbContext.Database.ExecuteSqlRawAsync(sql);
-    dbContext.Votes.Add(new Vote() { VoteTime = DateTime.UtcNow, OptionVoted = option });
+    var vote = new Vote() { VoteTime = DateTime.UtcNow, OptionVoted = option };
+    dbContext.Votes.Add(vote);
     await dbContext.SaveChangesAsync();
+    await discordMessageService.SendVoteMessage(vote);
 
     return Results.Ok(await dbContext.VoteOptions.FirstAsync());
 });
