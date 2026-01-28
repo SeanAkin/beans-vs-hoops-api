@@ -25,7 +25,6 @@ if (!app.Environment.IsDevelopment())
     {
         ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
     });
-    app.UseMiddleware<IpRestrictionMiddleware>();
 }
 
 app.UseMiddleware<ApiKeyMiddleware>();
@@ -36,6 +35,18 @@ using (var scope = app.Services.CreateScope())
     context.Database.Migrate();
 }
 app.UsePathBase("/hoops-vs-beans-api");
+
+app.MapWhen(ctx => ctx.Request.Path.Value?.Contains("swagger", StringComparison.OrdinalIgnoreCase) == true,
+    swaggerApp =>
+    {
+        if (!app.Environment.IsDevelopment())
+        {
+            swaggerApp.UseMiddleware<IpRestrictionMiddleware>();
+        }
+        swaggerApp.UseSwagger();
+        swaggerApp.UseSwaggerUI();
+    });
+
 app.UseSwagger();
 app.UseSwaggerUI();
 
