@@ -4,10 +4,8 @@ namespace HoopsVsBeans.Middleware;
 
 public class IpRestrictionMiddleware
 {
-    private static readonly HashSet<string> AllowedDomains = new()
-    {
-        "hoopsvsbeans.com"
-    };
+    private static readonly HashSet<string> AllowedDomains = new() { "hoopsvsbeans.com" };
+    private static readonly HashSet<string> AllowedOrigins = new() { "https://hoopsvsbeans.com", "https://www.hoopsvsbeans.com", "https://beans-vs-hoops.vercel.app" };
 
     private readonly HashSet<string> AllowedIps;
     private readonly RequestDelegate _next;
@@ -51,7 +49,28 @@ public class IpRestrictionMiddleware
             }
         }
 
+        var origin = context.Request.Headers["Origin"].FirstOrDefault();
+        var referer = context.Request.Headers["Referer"].FirstOrDefault();
+
+        if (!string.IsNullOrEmpty(origin) && AllowedOrigins.Contains(origin))
+        {
+            await _next(context);
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(referer))
+        {
+            var refererUri = new Uri(referer);
+            var refererOrigin = $"{refererUri.Scheme}://{refererUri.Host}";
+
+            if (AllowedOrigins.Contains(refererOrigin))
+            {
+                await _next(context);
+                return;
+            }
+        }
+
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
-        await context.Response.WriteAsync("Access Forbidden: Your IP is not allowed.");
+        await context.Response.WriteAsync("Access Forbidden: Your IP or origin is not allowed.");
     }
 }
