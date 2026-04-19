@@ -1,91 +1,54 @@
-name: pipeline
+name: Publish Docker Image
+
 on:
- push:
-   branches:
-     - "main"
-
-env:
-  REGISTRY: ghcr.io
-
-permissions:
-  packages: write
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
-  # run-tests:
-  #   runs-on: ubuntu-latest
-  #   strategy:
-  #     matrix:
-  #       dotnet-version: [ '8.0.x' ]
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - name: Setup dotnet ${{ matrix.dotnet-version }}
-  #       uses: actions/setup-dotnet@v4
-  #       with:
-  #         dotnet-version: ${{ matrix.dotnet-version }}
-
-  #     - name: Display dotnet version
-  #       run: dotnet --version
-
-  #     - name: Install dependencies
-  #       run: dotnet restore
-
-  #     - name: Build
-  #       run: dotnet build
-
-  #     - name: Test with the dotnet CLI
-  #       run: dotnet test
-
-  publish:
-    name: publish image
+  build-and-push:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - name: Set lower case owner name
-        run: echo "OWNER_LC=${OWNER,,}" >> $GITHUB_ENV
-        env:
-          OWNER: '${{ github.repository_owner }}'
-
-      - name: login
-        run: echo ${{ secrets.GH_SECRET }} | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-
-      - name: Build and Publish
-        run: |
-          IMAGE_NAME=${{ env.OWNER_LC }}/hoops-vs-beans-api:latest
-          docker build . --tag ${{ env.REGISTRY }}/${IMAGE_NAME}
-          docker push ${{ env.REGISTRY }}/${IMAGE_NAME}
-
-  deploy:
-    needs: publish
-    name: deploy image
-    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
 
     steps:
-      - name: install ssh keys
-        run: |
-          install -m 600 -D /dev/null ~/.ssh/id_rsa
-          echo "${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-          ssh-keyscan -H ${{ secrets.SSH_HOST }} > ~/.ssh/known_hosts
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: create .env file on remote host
-        run: |
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cat > ${{ secrets.WORK_DIR }}/.env <<EOF
-          BEANS_VS_HOOPS_API_KEY=${{ secrets.API_KEY }}
-          WHITELISTED_IPS=${{ secrets.WHITELISTED_IPS }}
-          DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK }}
-          EOF"
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: connect, pull, and deploy
-        run: |
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.WORK_DIR }} && \
-            docker compose pull && \
-            docker stop hoops-vs-beans_api || true && \
-            docker rm hoops-vs-beans_api || true && \
-            docker compose up -d && exit"
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/hoops-vs-beans-api
+          tags: |
+            type=sha,prefix=sha-
+            type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: verify container is running
-        run: |
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "if [ -z \"\$(docker ps -q -f name=hoops-vs-beans_api)\" ]; then echo 'Error: Container is not running' && exit 1; else echo 'Container is running'; fi"
-          
-      - name: cleanup
-        run: rm -rf ~/.ssh
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      - name: Trigger Dokploy deployment
+        run: curl -s -X POST "${{ secrets.DOKPLOY_WEBHOOK }}"
+
+      - name: Clean up old GHCR images
+        uses: dataaxiom/ghcr-cleanup-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          package: hoops-vs-beans-api
+          keep-n-tagged: 5
+          delete-untagged: true
